@@ -5,19 +5,20 @@
  * Created on 23 October, 2012, 11:18 AM
  */
 
-#include<stdio.h>
-#include<stdlib.h>
-#include<unistd.h>
-#include<sys/types.h>
-#include<pwd.h>
-#include<string.h>
-
 #ifndef MYSHELL_H
 #define	MYSHELL_H
 
 #ifdef	__cplusplus
 extern "C" {
 #endif
+
+#include<stdio.h>
+#include<stdlib.h>
+#include<stdlib.h>
+#include<unistd.h>
+#include<sys/types.h>
+#include<pwd.h>
+#include<string.h>
 
     char host_name[256], current_path[256];
     size_t len;
