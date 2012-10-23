@@ -18,7 +18,7 @@ int main(int argc, char** argv) {
     
     while(1){
         
-        printf("%s@%s:%s$ ", user_name, host_name, current_path);
+        printf("%s@%s:%s > ", user_name, host_name, current_path);
         gets(command);
 
 
