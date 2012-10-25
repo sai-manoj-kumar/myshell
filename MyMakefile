@@ -1,0 +1,12 @@
+mysh: main.o myshell.o
+	gcc -o mysh main.o myshell.o -lreadline
+
+myshell.o: myshell.c myshell.h
+	gcc -c -g -MMD -MP -MF myshell.o.d -o myshell.o myshell.c
+	
+main.o: main.c
+	gcc -c -g -MMD -MP -MF main.o.d -o main.o main.c
+	
+clean:
+	rm mysh *.o *.o.d 
+
