@@ -19,6 +19,8 @@ extern "C" {
 #include<sys/types.h>
 #include<pwd.h>
 #include<string.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 
     typedef enum {
         false, true
@@ -28,7 +30,6 @@ extern "C" {
     size_t len;
     __uid_t uid;
     struct passwd *current_user;
-    char command[256];
     char *user_name; // Username of the current user
     char *home_dir; // Home directory of the current user.
     char *details; // Details of the current user.
@@ -42,6 +43,7 @@ extern "C" {
 
     int myshell_exit(int status);
 
+    char* rl_read();
 
 
 

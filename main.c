@@ -13,20 +13,24 @@
 
 int main(int argc, char** argv) {
 
+    char *input = (char *) NULL;
+
     // To initialize the shell, myshell
     myshell_init();
-    
-    while(1){
-        
-        printf("%s@%s:%s > ", user_name, host_name, current_path);
-        gets(command);
 
-//      Exit myshell if `exit` command is entered.
-        if( strcmp(command, "exit") == 0 ){
+    while (1) {
+
+        input = rl_read();
+
+        //      Exit myshell if either Ctrl +D is pressed or 
+        //        `exit` command is entered.
+        if (!input) {
+            myshell_exit(EXIT_SUCCESS);
+        } else if (strcmp(input, "exit") == 0) {
             myshell_exit(EXIT_SUCCESS);
         }
-    
+
     }
-    
+
 }
 

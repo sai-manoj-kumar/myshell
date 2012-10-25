@@ -35,8 +35,10 @@ void myshell_init() {
     gid = current_user->pw_gid; // group id of the current user.
 
     // Initially, set the current_path as home_dir of the user
+    int c = chdir(home_dir);
     strncpy(current_path, "~", 2);
 
+    rl_init();
 
 }
 
@@ -46,10 +48,35 @@ int myshell_exit(int status) {
     if (killed_bg_ps) {
         printf("Killed Background Processes\n");
     }
-    printf("Bye, have a nice day.\n");
+    printf("\nBye, have a nice day.\n");
     exit(status);
 }
 
+int rl_init() {
+    // Accepting Defaults for now. No special initializations.    
+}
 
+char* rl_read() {
 
+    static char *line_read = (char *) NULL;
+    char shell_prompt[1024];
 
+    /* If the buffer has already been allocated,
+     return the memory to the free pool. */
+    if (line_read) {
+        free(line_read);
+        line_read = (char *) NULL;
+    }
+    
+    snprintf(shell_prompt, sizeof (shell_prompt), "%s@%s:%s > ", user_name, host_name, current_path);
+    
+    /* Get a line from the user. */
+    line_read = readline(shell_prompt);
+
+    /* If the line has any text in it,
+       save it on the history. */
+    if (line_read && *line_read)
+        add_history(line_read);
+
+    return (line_read);
+}
