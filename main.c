@@ -21,14 +21,10 @@ int main(int argc, char** argv) {
         printf("%s@%s:%s > ", user_name, host_name, current_path);
         gets(command);
 
-
-
 //      Exit myshell if `exit` command is entered.
         if( strcmp(command, "exit") == 0 ){
             myshell_exit(EXIT_SUCCESS);
         }
-        
-        
     
     }
     

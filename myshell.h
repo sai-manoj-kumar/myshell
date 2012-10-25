@@ -20,6 +20,10 @@ extern "C" {
 #include<pwd.h>
 #include<string.h>
 
+    typedef enum {
+        false, true
+    } boolean;
+
     char host_name[256], current_path[256];
     size_t len;
     __uid_t uid;
@@ -30,6 +34,7 @@ extern "C" {
     char *details; // Details of the current user.
     char *shell; // Details of the current user.
     __gid_t gid; // group id of the current user.
+    boolean killed_bg_ps;
 
 
 
