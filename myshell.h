@@ -21,10 +21,26 @@ extern "C" {
 #include<string.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+#include <regex.h>
+#include <errno.h>
 
     typedef enum {
         false, true
     } boolean;
+
+    struct component {
+        char body[256]; //The string that represents the command of that component.
+        int input; //Source of input of this process
+        int output; //Where output of this process should go
+    };
+
+    struct command {
+        char command[16];
+    };
+    
+    struct process{
+        pid_t pid;
+    }processes[20];
 
     char host_name[256], current_path[256];
     size_t len;
@@ -45,7 +61,11 @@ extern "C" {
 
     char* rl_read();
 
+    int validate(char input[]);
+    
+    int parse_input(char input[], struct component *components);
 
+    void myshell_spawn(char commands[]);
 
 #ifdef	__cplusplus
 }

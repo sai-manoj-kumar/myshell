@@ -7,6 +7,10 @@
 
 #include"myshell.h"
 
+struct component builtins[] = {"cd", "jobs", "exit", "help", "kill", "history"},
+externals[] = {"ls", "ps", "pstree", "cat", "touch", "mkdir",
+    "rmdir", "rm", "file", "clear", "mv", "cp"};
+
 void myshell_init() {
 
     // Get the UID of the current user.
@@ -67,9 +71,9 @@ char* rl_read() {
         free(line_read);
         line_read = (char *) NULL;
     }
-    
+
     snprintf(shell_prompt, sizeof (shell_prompt), "%s@%s:%s > ", user_name, host_name, current_path);
-    
+
     /* Get a line from the user. */
     line_read = readline(shell_prompt);
 
@@ -80,3 +84,82 @@ char* rl_read() {
 
     return (line_read);
 }
+
+int validate(char input[]) {
+    char *pattern1, *pattern2;
+    regex_t compiled1, compiled2;
+    int result1, result2;
+
+    pattern1 = "^[^|;]\\+\\(\\(|[^|;]\\+\\)\\|\\(;[^|;]\\+\\)\\)\\{0,10\\};\\?$";
+    pattern2 = "| \\+|\\|; \\+;\\|; \\+|";
+
+    regcomp(&compiled1, pattern1, 0);
+    result1 = regexec(&compiled1, input, 0, NULL, 0);
+    if (result1 == 0) {
+        regcomp(&compiled2, pattern2, 0);
+        result2 = regexec(&compiled2, input, 0, NULL, 0);
+    }
+
+    if ( result1 != 0 || result2 == 0) {
+        printf("Error while parsing the command:\nUse pipe(|) and "
+                "semicolon(;) at most 10 times and use them legally.\n");
+        return -1;
+    }
+    return 0;
+}
+
+int parse_input(char input[], struct component *components) {
+    int count = 0, i, j, nspaces = 0;
+
+    for (i = 0, j = 0; input[j] != '\0'; j++) {
+        if (i == j && (input[i] == ';' || input[i] == ' ')) {
+            i++;
+            continue;
+        }
+        if (input[j] == ';' || input[j] == '|') {
+            strncpy(components[count].body, &input[i], j - i - nspaces);
+            components[count].body[j - i] = '\0';
+            nspaces = 0;
+            i = j + 1;
+            count++;
+        } else if (input[j] == ' ') {
+            nspaces++;
+        } else {
+            nspaces = 0;
+        }
+    }
+    if (i != j) {
+        strncpy(components[count].body, &input[i], j - i - nspaces);
+        components[count].body[j - i] = '\0';
+        count++;
+    }
+
+    return count;
+
+}
+
+int myshell_process(struct component *components){
+    
+}
+
+void myshell_spawn(char command[]) {
+    pid_t pid;
+
+
+    if (strcmp(command, "") != 0) {
+
+        pid = fork();
+        if (pid == 0) {
+            if (execlp(command, "-a", NULL) == -1) {
+                printf("%s\n", strerror(errno));
+                printf("%s\n", command);
+                exit(1);
+            }
+        }
+    }
+
+    wait();
+
+}
+
+

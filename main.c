@@ -14,13 +14,14 @@
 int main(int argc, char** argv) {
 
     char *input = (char *) NULL;
-
+    int i, count, is_valid;
+    struct component components[50];
     // To initialize the shell, myshell
     myshell_init();
 
     while (1) {
-
         input = rl_read();
+        count = 0;
 
         //      Exit myshell if either Ctrl +D is pressed or 
         //        `exit` command is entered.
@@ -28,6 +29,18 @@ int main(int argc, char** argv) {
             myshell_exit(EXIT_SUCCESS);
         } else if (strcmp(input, "exit") == 0) {
             myshell_exit(EXIT_SUCCESS);
+        }
+
+
+        if (strcmp(input, "") != 0) {
+            is_valid = validate(input);
+            if( is_valid == 0 ){
+                count = parse_input(input, components);
+                for (i = 0; i < count; i++) {
+                    printf("^%sv\n", components[i].body);
+                    myshell_process(components);
+                }
+            }
         }
 
     }
