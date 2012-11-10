@@ -14,6 +14,7 @@ struct command supported[] = {
     {"help", true},
     {"kill", true},
     {"history", true},
+    {"clear", true},
     {"ls", false},
     {"ps", false},
     {"pstree", false},
@@ -22,8 +23,6 @@ struct command supported[] = {
     {"mkdir", false},
     {"rmdir", false},
     {"rm", false},
-    {"file", false},
-    {"clear", false},
     {"mv", false},
     {"cp", false}
 };
@@ -32,7 +31,10 @@ void myshell_init() {
 
     // Initialize the number of processes created by the shell to be zero.
     num_processes = 0;
-
+    char *env = getenv("PATH");
+    if (env == NULL) {
+        printf("error: initialize: %s\n", errno);
+    }
     // Get the UID of the current user.
     uid = getuid();
     // Get the passwd structure of the current user. 
@@ -58,12 +60,20 @@ void myshell_init() {
     shell = current_user->pw_shell; // Details of the current user.
     gid = current_user->pw_gid; // group id of the current user.
 
-    // Initially, set the current_path as home_dir of the user
+    getcwd(initial_path, 256);
+    printf("Initial path %s\n", initial_path);
 
-    if (-1 == chdir(home_dir)) {
-        printf("error: %s\n", strerror(errno));
-    }
-    strncpy(current_path, home_dir, 256);
+    // Initially, set the current_path as home_dir of the user. not now.
+
+    //    if (-1 == chdir(home_dir)) {
+    //        printf("error: %s\n", strerror(errno));
+    //    }
+    strncpy(current_path, initial_path, 256);
+    char new_env[520];
+    strncpy(new_env, current_path, 256);
+    strcat(new_env, ":");
+    strcat(new_env, env);
+    setenv("PATH", new_env, 1);
     //    strncpy(current_path, "~", 2);
 
     rl_init();
@@ -171,6 +181,49 @@ int parse_input(char input[], struct component *components) {
         count++;
     }
 
+
+    for (i = 0; i < count; i++) {
+        char temp[256];
+        int k, a;
+        for (j = 0, a = 0, k = 0; components[i].body[j] != '\0'; j++) {
+            if (components[i].body[j] != ' ') {
+                if (j > 0) {
+                    if ('\\' == components[i].body[j] && '\\' != components[i].body[j - 1]) {
+                        continue;
+                        //Unescaping slashes.
+                    }
+                }
+                temp[k] = components[i].body[j];
+                k++;
+            } else {
+                temp[k] = '\0';
+                if (components[i].args[a]) {
+                    free(components[i].args[a]);
+                    components[i].args[a] = (char *) NULL;
+                }
+                components[i].args[a] = malloc(sizeof (temp));
+                strncpy(components[i].args[a], temp, strlen(temp) + 1);
+                a++;
+                k = 0;
+                while (' ' == components[i].body[j + 1])
+                    j++;
+            }
+
+            if (a > 10) {
+                printf("Too many arguments\n");
+                return -1;
+            }
+        }
+        temp[k] = '\0';
+        if (components[i].args[a]) {
+            free(components[i].args[a]);
+            components[i].args[a] = (char *) NULL;
+        }
+        components[i].args[a] = malloc(sizeof (temp));
+        strcpy(components[i].args[a], temp);
+        a++;
+        components[i].args[a] = (char *) NULL;
+    }
     return count;
 
 }
@@ -178,85 +231,59 @@ int parse_input(char input[], struct component *components) {
 int myshell_process(struct component *components, int count) {
     int i, j;
     boolean internal = false, external = false;
-    char argument[256];
-    char args[64][64];
-    struct command commands[20];
 
     for (i = 0; i < count; i++) {
         internal = false;
         external = false;
-        printf("^%s$\n", components[i].body);
-        sscanf(components[i].body, "%s", commands[i].command);
-        //        printf("^%s$\n", commands[i].command);
+        int z;
+        for (z = 0; components[i].args[z]; z++) {
+            printf("comp %d: arg %d: %s\n", i + 1, z + 1, components[i].args[z]);
+        }
 
-        for (j = 0; j < 18; j++) {
-            if ((0 == strcmp(commands[i].command, supported[j].command)) && supported[j].builtin) {
-
+        for (j = 0; j < 17; j++) {
+            if ((0 == strcmp(components[i].args[0], supported[j].command)) && supported[j].builtin) {
                 internal = true;
-                strncpy(argument, &components[i].body[strlen(commands[i].command) + 1], 256);
-
-                int k1, k2;
-                for (k1 = 0, k2 = 0; argument[k2] != NULL; k2++) {
-                    if (k1 != k2) {
-                        argument[k1] = argument[k2];
-                        if ('\\' == argument[k1]) {
-                            k1++;
-                        }
-                    }
-                    if ('\\' != argument[k2]) {
-                        k1++;
-                    }
-                }
-                argument[k1] = NULL;
                 break;
-            } else if ((0 == strcmp(commands[i].command, supported[j].command)) && !supported[j].builtin) {
+            } else if ((0 == strcmp(components[i].args[0], supported[j].command)) && !supported[j].builtin) {
                 external = true;
-                int start = strlen(commands[i].command) + 1;
-
-                int k;
-                for (k = 0;; k++) {
-                    int n = sscanf(&components[i].body[start], "%s", args[k]);
-                    if (1 == n) {
-                        printf("%s\n", args[k]);
-                    } else if (errno != 0) {
-                        perror("scanf");
-                    } else {
-                        //                        fprintf(stderr, "No matching characters\n");
-                        break;
-                    }
-                    start += strlen(args[k]) + 1;
-                    if (k > 10) {
-                        printf("Too many arguments to the command %s, Stopping "
-                                "Processing command\n", commands[i].command);
-                        return -1;
-                    }
-                }
-
-
                 break;
             }
         }
         if (internal) {
-            call_builtin(supported[j].command, argument);
+            printf("Builtin\n");
+            //            printf("^%s$\n", supported[j].command);
+            //            printf("^%s$\n", components[i].args[0]);
+            call_builtin(supported[j].command, components[i].args);
         } else if (external) {
             //                Spawn a new process.
-            myshell_spawn(commands[i].command, args);
+            printf("External\n");
+            printf("^%s$\n", supported[j].command);
+            printf("^%s$\n", components[i].args[0]);
+            int re = myshell_spawn(components[i].args);
+            if (re != 0) {
+                printf("%s exited with %d value\n", components[i].args[0], re);
+            }
+        } else {
+            printf("Not a builtin or external command\n");
+            int re = myshell_spawn(components[i].args);
+            if (re != 0) {
+                printf("%s exited with %d value\n", components[i].args[0], re);
+            }
+
+            return -1;
         }
 
-
     }
-    
-    
-    
+
     return 0;
 }
 
-int call_builtin(char command[], char args[]) {
+int call_builtin(char command[], char *args[]) {
 
     if (0 == strcmp(command, "cd")) {
         return cd(args);
     } else if (0 == strcmp(command, "history")) {
-        return history(args);
+        return history();
     } else if (0 == strcmp(command, "jobs")) {
         return jobs(args);
     } else if (0 == strcmp(command, "kill")) {
@@ -269,29 +296,47 @@ int call_builtin(char command[], char args[]) {
 
 }
 
-void myshell_spawn(char command[], char *args[]) {
+int myshell_spawn(char *args[]) {
     pid_t pid;
+    int i;
+    if (strcmp(args[0], "") != 0) {
 
-
-    if (strcmp(command, "") != 0) {
-
+        for (i = 0; args[i] != NULL; i++) {
+            printf("argument %d  %s\n", i + 1, args[i]);
+        }
         pid = fork();
-        //        Add to processes[]
         if (pid == 0) {
-            if (execlp(command, "-a", NULL) == -1) {
-                printf("%s\n", strerror(errno));
-                printf("%s\n", command);
+            printf("%s\n", args[0]);
+
+            if (execvp(args[0], args) == -1) {
+                printf("error: exec: %s %s\n", args[0], strerror(errno));
+                printf("%s\n", args[0]);
                 exit(1);
             }
         }
+        //        Add to processes[]
+        processes[num_processes].pid = pid;
+        strncpy(processes[num_processes].command, args[0], 50);
+        num_processes++;
     }
-
-    wait();
-
+    int status;
+    waitpid(pid, &status, 0);
+    num_processes--;
+    done[num_done].pid = pid;
+    strncpy(done[num_done].command, args[0], 50);
+    num_done++;
+    return status;
 }
 
-int cd(char path[]) {
+int cd(char *args[]) {
     char *new_path;
+    char path[256];
+    if (args[1] != NULL) {
+        strcpy(path, args[1]);
+    } else {
+        printf("NULL\n");
+        strncpy(path, "~", 2);
+    }
     if ((0 == strcmp(path, "~")) || (0 == strcmp(path, ""))) {
         strncpy(path, current_user->pw_dir, 256);
     }
@@ -305,18 +350,19 @@ int cd(char path[]) {
     }
 }
 
-int jobs(char args[]) {
-    int i;
+int jobs(char *args[]) {
+    int i, j;
     //    printf("Jobs\n");
     for (i = 0; i < num_processes; i++) {
-        char state[10] = {'h', 'i'};
-        printf("[%d] \t %s \t%s\n", i + 1, state, processes[i].command);
+        printf("[%d] \t %s \t%s\n", i + 1, "Running", processes[i].command);
     }
-
+    for (j = 0; j < num_done; j++) {
+        printf("[%d] \t %s \t%s\n", j + 1, "Done", done[j].command);
+    }
     return EXIT_SUCCESS;
 }
 
-int kill(char args[]) {
+int kill(char *args[]) {
     printf("KILL\n");
     return EXIT_SUCCESS;
 }

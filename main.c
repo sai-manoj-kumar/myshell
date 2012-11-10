@@ -19,6 +19,7 @@ int main(int argc, char** argv) {
     // To initialize the shell, myshell
     myshell_init();
 
+    printf("Welcome\n");
     while (1) {
         input = rl_read();
         count = 0;

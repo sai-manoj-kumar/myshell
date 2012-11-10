@@ -28,12 +28,9 @@ extern "C" {
         false, true
     } boolean;
 
-    typedef enum {
-        running, done
-    } state;
-
     struct component {
         char body[256]; //The string that represents the command of that component.
+        char *args[16];
         int input; //Source of input of this process
         int output; //Where output of this process should go
     };
@@ -45,12 +42,11 @@ extern "C" {
 
     struct process {
         pid_t pid;
-        state st;
         char command[50]; //command which generated it.
-    } processes[50];
-    int num_processes;
+    } processes[50], done[50];
+    int num_processes, num_done;
 
-    char host_name[256], current_path[256];
+    char host_name[256], current_path[256], initial_path[256];
     size_t len;
     __uid_t uid;
     struct passwd *current_user;
@@ -75,11 +71,11 @@ extern "C" {
 
     int myshell_process(struct component *components, int count);
 
-    int call_builtin(char command[], char args[]);
+    int call_builtin(char command[], char *args[]);
 
-    void myshell_spawn(char command[], char *args[]);
+    int myshell_spawn(char *args[]);
 
-    int cd(char path[]);
+    int cd(char *args[]);
 
     int jobs();
 
