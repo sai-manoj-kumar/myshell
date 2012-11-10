@@ -33,13 +33,10 @@ int main(int argc, char** argv) {
 
 
         if (strcmp(input, "") != 0) {
-            is_valid = validate(input);
-            if( is_valid == 0 ){
+            is_valid = validate_input(input);
+            if (is_valid == 0) {
                 count = parse_input(input, components);
-                for (i = 0; i < count; i++) {
-                    printf("^%sv\n", components[i].body);
-                    myshell_process(components);
-                }
+                myshell_process(components, count);
             }
         }
 

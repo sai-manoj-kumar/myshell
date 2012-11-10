@@ -7,11 +7,31 @@
 
 #include"myshell.h"
 
-struct component builtins[] = {"cd", "jobs", "exit", "help", "kill", "history"},
-externals[] = {"ls", "ps", "pstree", "cat", "touch", "mkdir",
-    "rmdir", "rm", "file", "clear", "mv", "cp"};
+struct command supported[] = {
+    {"cd", true},
+    {"jobs", true},
+    {"exit", true},
+    {"help", true},
+    {"kill", true},
+    {"history", true},
+    {"ls", false},
+    {"ps", false},
+    {"pstree", false},
+    {"cat", false},
+    {"touch", false},
+    {"mkdir", false},
+    {"rmdir", false},
+    {"rm", false},
+    {"file", false},
+    {"clear", false},
+    {"mv", false},
+    {"cp", false}
+};
 
 void myshell_init() {
+
+    // Initialize the number of processes created by the shell to be zero.
+    num_processes = 0;
 
     // Get the UID of the current user.
     uid = getuid();
@@ -39,8 +59,12 @@ void myshell_init() {
     gid = current_user->pw_gid; // group id of the current user.
 
     // Initially, set the current_path as home_dir of the user
-    int c = chdir(home_dir);
-    strncpy(current_path, "~", 2);
+
+    if (-1 == chdir(home_dir)) {
+        printf("error: %s\n", strerror(errno));
+    }
+    strncpy(current_path, home_dir, 256);
+    //    strncpy(current_path, "~", 2);
 
     rl_init();
 
@@ -57,7 +81,7 @@ int myshell_exit(int status) {
 }
 
 int rl_init() {
-    // Accepting Defaults for now. No special initializations.    
+    //    using_history();
 }
 
 char* rl_read() {
@@ -77,21 +101,34 @@ char* rl_read() {
     /* Get a line from the user. */
     line_read = readline(shell_prompt);
 
-    /* If the line has any text in it,
+    /* If the line has any text in it, and not the last one in the history, 
        save it on the history. */
-    if (line_read && *line_read)
-        add_history(line_read);
+
+    HIST_ENTRY ** whole_history;
+    int i;
+
+    if (line_read && *line_read) {
+        whole_history = history_list();
+        if (whole_history) {
+            for (i = 0; whole_history[i]; i++);
+            if (0 != strcmp(whole_history[i - 1]->line, line_read)) {
+                add_history(line_read);
+            }
+        } else {
+            add_history(line_read);
+        }
+    }
 
     return (line_read);
 }
 
-int validate(char input[]) {
+int validate_input(char input[]) {
     char *pattern1, *pattern2;
     regex_t compiled1, compiled2;
     int result1, result2;
 
     pattern1 = "^[^|;]\\+\\(\\(|[^|;]\\+\\)\\|\\(;[^|;]\\+\\)\\)\\{0,10\\};\\?$";
-    pattern2 = "| \\+|\\|; \\+;\\|; \\+|";
+    pattern2 = "| \\+|\\|; \\+;\\|; \\+|\\|| \\+;";
 
     regcomp(&compiled1, pattern1, 0);
     result1 = regexec(&compiled1, input, 0, NULL, 0);
@@ -100,7 +137,7 @@ int validate(char input[]) {
         result2 = regexec(&compiled2, input, 0, NULL, 0);
     }
 
-    if ( result1 != 0 || result2 == 0) {
+    if (result1 != 0 || result2 == 0) {
         printf("Error while parsing the command:\nUse pipe(|) and "
                 "semicolon(;) at most 10 times and use them legally.\n");
         return -1;
@@ -112,7 +149,7 @@ int parse_input(char input[], struct component *components) {
     int count = 0, i, j, nspaces = 0;
 
     for (i = 0, j = 0; input[j] != '\0'; j++) {
-        if (i == j && (input[i] == ';' || input[i] == ' ')) {
+        if (i == j && (input[i] == ' ')) {
             i++;
             continue;
         }
@@ -138,17 +175,108 @@ int parse_input(char input[], struct component *components) {
 
 }
 
-int myshell_process(struct component *components){
+int myshell_process(struct component *components, int count) {
+    int i, j;
+    boolean internal = false, external = false;
+    char argument[256];
+    char args[64][64];
+    struct command commands[20];
+
+    for (i = 0; i < count; i++) {
+        internal = false;
+        external = false;
+        printf("^%s$\n", components[i].body);
+        sscanf(components[i].body, "%s", commands[i].command);
+        //        printf("^%s$\n", commands[i].command);
+
+        for (j = 0; j < 18; j++) {
+            if ((0 == strcmp(commands[i].command, supported[j].command)) && supported[j].builtin) {
+
+                internal = true;
+                strncpy(argument, &components[i].body[strlen(commands[i].command) + 1], 256);
+
+                int k1, k2;
+                for (k1 = 0, k2 = 0; argument[k2] != NULL; k2++) {
+                    if (k1 != k2) {
+                        argument[k1] = argument[k2];
+                        if ('\\' == argument[k1]) {
+                            k1++;
+                        }
+                    }
+                    if ('\\' != argument[k2]) {
+                        k1++;
+                    }
+                }
+                argument[k1] = NULL;
+                break;
+            } else if ((0 == strcmp(commands[i].command, supported[j].command)) && !supported[j].builtin) {
+                external = true;
+                int start = strlen(commands[i].command) + 1;
+
+                int k;
+                for (k = 0;; k++) {
+                    int n = sscanf(&components[i].body[start], "%s", args[k]);
+                    if (1 == n) {
+                        printf("%s\n", args[k]);
+                    } else if (errno != 0) {
+                        perror("scanf");
+                    } else {
+                        //                        fprintf(stderr, "No matching characters\n");
+                        break;
+                    }
+                    start += strlen(args[k]) + 1;
+                    if (k > 10) {
+                        printf("Too many arguments to the command %s, Stopping "
+                                "Processing command\n", commands[i].command);
+                        return -1;
+                    }
+                }
+
+
+                break;
+            }
+        }
+        if (internal) {
+            call_builtin(supported[j].command, argument);
+        } else if (external) {
+            //                Spawn a new process.
+            myshell_spawn(commands[i].command, args);
+        }
+
+
+    }
     
+    
+    
+    return 0;
 }
 
-void myshell_spawn(char command[]) {
+int call_builtin(char command[], char args[]) {
+
+    if (0 == strcmp(command, "cd")) {
+        return cd(args);
+    } else if (0 == strcmp(command, "history")) {
+        return history(args);
+    } else if (0 == strcmp(command, "jobs")) {
+        return jobs(args);
+    } else if (0 == strcmp(command, "kill")) {
+        return kill(args);
+    } else if (0 == strcmp(command, "help")) {
+        return help();
+    } else if (0 == strcmp(command, "exit")) {
+        return myshell_exit(EXIT_SUCCESS);
+    }
+
+}
+
+void myshell_spawn(char command[], char *args[]) {
     pid_t pid;
 
 
     if (strcmp(command, "") != 0) {
 
         pid = fork();
+        //        Add to processes[]
         if (pid == 0) {
             if (execlp(command, "-a", NULL) == -1) {
                 printf("%s\n", strerror(errno));
@@ -162,4 +290,57 @@ void myshell_spawn(char command[]) {
 
 }
 
+int cd(char path[]) {
+    char *new_path;
+    if ((0 == strcmp(path, "~")) || (0 == strcmp(path, ""))) {
+        strncpy(path, current_user->pw_dir, 256);
+    }
+    if (-1 == chdir(path)) {
+        printf("cd: error: %s: %s\n", path, strerror(errno));
+        return EXIT_FAILURE;
+    } else {
+        new_path = getcwd(NULL, 0);
+        strcpy(current_path, new_path);
+        return EXIT_SUCCESS;
+    }
+}
+
+int jobs(char args[]) {
+    int i;
+    //    printf("Jobs\n");
+    for (i = 0; i < num_processes; i++) {
+        char state[10] = {'h', 'i'};
+        printf("[%d] \t %s \t%s\n", i + 1, state, processes[i].command);
+    }
+
+    return EXIT_SUCCESS;
+}
+
+int kill(char args[]) {
+    printf("KILL\n");
+    return EXIT_SUCCESS;
+}
+
+int history() {
+
+    HIST_ENTRY ** whole_history;
+    int i;
+    whole_history = history_list();
+    if (whole_history) {
+
+        for (i = 0; whole_history[i]; i++) {
+            printf("%d : %s\n", i + history_base, whole_history[i]->line);
+        }
+
+    }
+
+    return EXIT_SUCCESS;
+}
+
+int help() {
+
+    printf("Help\n");
+
+    return EXIT_SUCCESS;
+}
 

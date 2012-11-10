@@ -28,6 +28,10 @@ extern "C" {
         false, true
     } boolean;
 
+    typedef enum {
+        running, done
+    } state;
+
     struct component {
         char body[256]; //The string that represents the command of that component.
         int input; //Source of input of this process
@@ -35,12 +39,16 @@ extern "C" {
     };
 
     struct command {
-        char command[16];
+        char command[64];
+        boolean builtin;
     };
-    
-    struct process{
+
+    struct process {
         pid_t pid;
-    }processes[20];
+        state st;
+        char command[50]; //command which generated it.
+    } processes[50];
+    int num_processes;
 
     char host_name[256], current_path[256];
     size_t len;
@@ -61,11 +69,20 @@ extern "C" {
 
     char* rl_read();
 
-    int validate(char input[]);
-    
+    int validate_input(char input[]);
+
     int parse_input(char input[], struct component *components);
 
-    void myshell_spawn(char commands[]);
+    int myshell_process(struct component *components, int count);
+
+    int call_builtin(char command[], char args[]);
+
+    void myshell_spawn(char command[], char *args[]);
+
+    int cd(char path[]);
+
+    int jobs();
+
 
 #ifdef	__cplusplus
 }
