@@ -23,6 +23,8 @@ extern "C" {
 #include <readline/history.h>
 #include <regex.h>
 #include <errno.h>
+#include <signal.h>
+#include <sys/fcntl.h>
 
     typedef enum {
         false, true
@@ -31,6 +33,7 @@ extern "C" {
     struct component {
         char body[256]; //The string that represents the command of that component.
         char *args[16];
+        boolean bg;
         int input; //Source of input of this process
         int output; //Where output of this process should go
     };
@@ -43,8 +46,8 @@ extern "C" {
     struct process {
         pid_t pid;
         char command[50]; //command which generated it.
-    } processes[50], done[50];
-    int num_processes, num_done;
+    } running_jobs[50], done[50];
+    int num_running, num_done;
 
     char host_name[256], current_path[256], initial_path[256];
     size_t len;
@@ -73,12 +76,13 @@ extern "C" {
 
     int call_builtin(char command[], char *args[]);
 
-    int myshell_spawn(char *args[]);
+    int myshell_spawn(char *args[], boolean bg, int input, int output);
 
     int cd(char *args[]);
 
     int jobs();
 
+    void handler(int sig);
 
 #ifdef	__cplusplus
 }

@@ -19,7 +19,8 @@ int main(int argc, char** argv) {
     // To initialize the shell, myshell
     myshell_init();
 
-    printf("Welcome\n");
+//    signal(SIGCHLD, handler);
+    
     while (1) {
         input = rl_read();
         count = 0;
@@ -37,7 +38,10 @@ int main(int argc, char** argv) {
             is_valid = validate_input(input);
             if (is_valid == 0) {
                 count = parse_input(input, components);
-                myshell_process(components, count);
+                int res = myshell_process(components, count);
+                if( res == -1 ){
+                    printf("error in command\n");
+                }
             }
         }
 
