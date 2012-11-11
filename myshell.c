@@ -54,7 +54,7 @@ void myshell_init() {
         printf("NULL\n");
         myshell_exit(1);
     }
-    user_name = current_user->pw_name; // Username of the current user
+    strncpy(user_name, current_user->pw_name, 256); // Username of the current user
     home_dir = current_user->pw_dir; // Home directory of the current user.
     details = current_user->pw_gecos; // Details of the current user.
     shell = current_user->pw_shell; // Details of the current user.
@@ -178,6 +178,11 @@ int parse_input(char input[], struct component *components) {
         if (input[j] == ';' || input[j] == '|') {
             strncpy(components[count].body, &input[i], j - i - nspaces);
             components[count].body[j - i] = '\0';
+            if (';' == input[j]) {
+                components[count].is_pipe = true;
+            } else {
+                components[count].is_pipe = false;
+            }
             nspaces = 0;
             i = j + 1;
             count++;
@@ -190,6 +195,7 @@ int parse_input(char input[], struct component *components) {
     if (i != j) {
         strncpy(components[count].body, &input[i], j - i - nspaces);
         components[count].body[j - i] = '\0';
+        components[count].is_pipe = false;
         count++;
     }
 
@@ -234,16 +240,17 @@ int parse_input(char input[], struct component *components) {
                     j++;
                 }
                 int y;
-                for (y = 0; components[i].body[j] != ' ' && components[i].body[j] != '\0'; j++, y++) {
+                for (y = 0; components[i].body[j] != ' ' && components[i].body[j] != '>' && components[i].body[j] != '\0'; j++, y++) {
                     temp[y] = components[i].body[j];
                 }
+                j--;
                 temp[y] = '\0';
                 k = 0;
                 if ('<' == op) {
                     components[i].input = open(temp, O_RDONLY);
                     input_set = true;
                 } else {
-                    components[i].output = open(temp, O_WRONLY | O_CREAT, S_IRWXU);
+                    components[i].output = open(temp, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
                     output_set = true;
                 }
             }
@@ -282,6 +289,11 @@ int parse_input(char input[], struct component *components) {
             }
         } else {
             components[i].bg = false;
+        }
+        if (components[i].is_pipe) {
+            int fd[2];
+            int res = pipe(fd);
+            
         }
     }
     return count;
@@ -361,10 +373,11 @@ void handler(int sig) {
     pid = wait(&status);
 
     //    printf("Pid %d exited.\n", pid);
-
-    num_running--;
-    done[num_done].pid = pid;
-    num_done++;
+    if (pid != -1) {
+        num_running--;
+        done[num_done].pid = pid;
+        num_done++;
+    }
 }
 
 int myshell_spawn(char *args[], boolean bg, int input, int output) {

@@ -34,8 +34,10 @@ extern "C" {
         char body[256]; //The string that represents the command of that component.
         char *args[16];
         boolean bg;
+        boolean is_pipe;
         int input; //Source of input of this process
         int output; //Where output of this process should go
+        
     };
 
     struct command {
@@ -53,7 +55,7 @@ extern "C" {
     size_t len;
     __uid_t uid;
     struct passwd *current_user;
-    char *user_name; // Username of the current user
+    char user_name[256]; // Username of the current user
     char *home_dir; // Home directory of the current user.
     char *details; // Details of the current user.
     char *shell; // Details of the current user.
